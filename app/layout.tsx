@@ -17,6 +17,7 @@ function Header() {
         <div className="nav-links">
           <Link className="nav-link" href="/">Dashboard</Link>
           <Link className="nav-link" href="/harbor">Harbor</Link>
+          <Link className="nav-link" href="/pilot-house">Pilot House</Link>
         </div>
         <ConnectButton.Custom>
           {({

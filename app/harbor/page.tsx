@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
-import { PILOTS, Pilot, fmtUsd, fmtPct } from '../../components/data';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Pilot, fmtUsd, fmtPct, enrichApiPilot } from '../../components/data';
+import { fetchPilots } from '../../lib/api';
 import { Icon, ScoreRing, Sparkline, RiskPill } from '../../components/ui';
 import Link from 'next/link';
 
@@ -63,6 +64,24 @@ function PilotCard({ p }: { p: Pilot }) {
 }
 
 export default function Harbor() {
+  const [pilots, setPilots] = useState<Pilot[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPilots().then(data => {
+      // If API returns no pilots, we could fallback to the mock PILOTS array, but let's show actual DB data
+      // For demo purposes, if the db is empty, maybe we should fall back to mock data?
+      if (data && data.length > 0) {
+        setPilots(data.map(enrichApiPilot));
+      } else {
+        // Fallback to mock data if API is empty or down
+        const { PILOTS } = require('../../components/data');
+        setPilots(PILOTS);
+      }
+      setLoading(false);
+    });
+  }, []);
+
   const [risk, setRisk] = useState('all');
   const [chain, setChain] = useState('all');
   const [sort, setSort] = useState<'score' | 'tvl' | 'apy' | 'captains'>('score');
@@ -81,7 +100,7 @@ export default function Harbor() {
   ];
 
   const filteredList = useMemo(() => {
-    const l = PILOTS.filter((p) => {
+    const l = pilots.filter((p) => {
       const matchRisk = risk === 'all' || p.risk === risk;
       const matchChain = chain === 'all' || p.chain === chain;
       return matchRisk && matchChain;
@@ -99,6 +118,7 @@ export default function Harbor() {
 
   return (
     <div className="wrap" style={{ paddingTop: '20px' }}>
+      {loading && <div style={{ position: 'absolute', top: 12, right: 24, fontSize: 12, color: 'var(--ink-3)' }}>Connecting to Indexer...</div>}
       <div className="sec-head" style={{ marginBottom: 32, maxWidth: 960 }}>
         <span className="kicker">The Harbor Marketplace</span>
         <h1 className="h1" style={{ marginTop: 14 }}>

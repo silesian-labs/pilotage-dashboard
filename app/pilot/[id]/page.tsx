@@ -1,7 +1,8 @@
 "use client";
 
-import React from 'react';
-import { PILOTS, fmtUsd, fmtPct } from '../../../components/data';
+import React, { useEffect, useState } from 'react';
+import { Pilot, fmtUsd, fmtPct, enrichApiPilot } from '../../../components/data';
+import { fetchPilot } from '../../../lib/api';
 import { Icon, ScoreRing, Sparkline, RiskPill } from '../../../components/ui';
 import Link from 'next/link';
 
@@ -9,7 +10,36 @@ type Params = Promise<{ id: string }>;
 
 export default function PilotProfile({ params }: { params: Params }) {
   const { id } = React.use(params);
-  const p = PILOTS.find(pilot => pilot.id === id);
+  const [p, setP] = useState<Pilot | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const numericId = parseInt(id, 10);
+    if (!isNaN(numericId)) {
+      fetchPilot(numericId).then(apiPilot => {
+        if (apiPilot) {
+          setP(enrichApiPilot(apiPilot));
+        } else {
+          // fallback if not found in db
+          const { PILOTS } = require('../../../components/data');
+          setP(PILOTS.find((pilot: Pilot) => pilot.id === id) || null);
+        }
+        setLoading(false);
+      });
+    } else {
+      const { PILOTS } = require('../../../components/data');
+      setP(PILOTS.find((pilot: Pilot) => pilot.id === id) || null);
+      setLoading(false);
+    }
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="wrap" style={{ paddingTop: 40, textAlign: 'center' }}>
+        <h2 className="h2">Navigating to pilot...</h2>
+      </div>
+    );
+  }
 
   if (!p) {
     return (

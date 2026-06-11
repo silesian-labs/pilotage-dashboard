@@ -142,3 +142,18 @@ export const TICKER = [
   { k: 'Charter violations blocked', v: '312' },
   { k: 'Avg Pilotage Score', v: '79 / 100' },
 ];
+
+// Helper to enrich API pilots with mock UI data
+export function enrichApiPilot(api: any): Pilot {
+  // Use modulo arithmetic to pick consistent aesthetic properties for any ID
+  const fallback = PILOTS[api.id % PILOTS.length] || PILOTS[0];
+  
+  return {
+    ...fallback,
+    id: api.id.toString(),
+    name: api.name || `Pilot #${api.id}`,
+    risk: (api.risk_profile === 'conservative' ? 'low' : api.risk_profile === 'high' ? 'high' : 'balanced') as any,
+    score: api.pilotage_score ?? 50,
+    handle: api.operator ? `${api.operator.substring(0,6)}...${api.operator.substring(38)}` : fallback.handle,
+  };
+}

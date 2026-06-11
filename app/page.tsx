@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useDashboardState, UserVault, CharterSettings } from './state';
-import { PILOTS, fmtUsd } from '../components/data';
+import { Pilot, fmtUsd, enrichApiPilot } from '../components/data';
+import { fetchPilots } from '../lib/api';
 import { Icon, ScoreRing } from '../components/ui';
 import Link from 'next/link';
 
@@ -46,7 +47,21 @@ export default function DashboardPage() {
   const [slippage, setSlippage] = useState<number>(0.5);
 
   const activeVault: UserVault | undefined = vaults[activeVaultIndex];
-  const activePilot = activeVault ? PILOTS.find(p => p.id === activeVault.pilotId) : null;
+  
+  // Fetch real pilots instead of using static PILOTS
+  const [pilotsList, setPilotsList] = useState<Pilot[]>([]);
+  useEffect(() => {
+    fetchPilots().then(data => {
+      if (data && data.length > 0) {
+        setPilotsList(data.map(enrichApiPilot));
+      } else {
+        const { PILOTS } = require('../components/data');
+        setPilotsList(PILOTS);
+      }
+    });
+  }, []);
+
+  const activePilot = activeVault && pilotsList.length > 0 ? pilotsList.find(p => p.id === activeVault.pilotId) : null;
 
   const handleDeposit = () => {
     if (!activeVault) return;
@@ -91,7 +106,8 @@ export default function DashboardPage() {
 
   // ---------------- EMPTY STATE ----------------
   if (vaults.length === 0) {
-    const featuredPilots = PILOTS.slice(0, 2);
+    // Show top 2 pilots from API or fallback
+    const featuredPilots = pilotsList.slice(0, 2);
     return (
       <div className="wrap" style={{ paddingTop: '30px', paddingBottom: '60px' }}>
         {showAlert && (
