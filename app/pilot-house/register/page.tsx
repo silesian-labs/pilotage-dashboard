@@ -3,19 +3,130 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '../../../components/ui';
+import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
+import { arbitrumSepolia } from 'wagmi/chains';
+
+const REGISTRY_ADDRESS = '0x52F10df476d30F42C9A019302Ea691Cedd0f5616';
+const USDC_ADDRESS = '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d';
+
+const PILOT_REGISTRY_ABI = [
+  {
+    name: "registerPilot",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "card",
+        type: "tuple",
+        components: [
+          { name: "name", type: "string" },
+          { name: "description", type: "string" },
+          { name: "riskProfile", type: "string" },
+          { name: "ipfsMetadata", type: "string" },
+          { name: "supportedChains", type: "address[]" },
+        ],
+      },
+      { name: "executor", type: "address" },
+      { name: "operator", type: "address" },
+      { name: "stake", type: "uint256" },
+    ],
+    outputs: [{ name: "id", type: "uint256" }],
+  }
+] as const;
+
+const ERC20_ABI = [
+  {
+    name: "approve",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "value", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  }
+] as const;
 
 export default function RegisterPilot() {
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const { address, isConnected, chain } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
+  const publicClient = usePublicClient();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loadingStep, setLoadingStep] = useState<'idle' | 'approving' | 'registering'>('idle');
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form states
+  const [name, setName] = useState('');
+  const [riskProfile, setRiskProfile] = useState('steady-yield');
+  const [performanceFee, setPerformanceFee] = useState(15);
+  const [executorAddress, setExecutorAddress] = useState('');
+  const [description, setDescription] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    // Simulate transaction
-    setTimeout(() => {
-      setLoading(false);
+    setError(null);
+
+    if (!isConnected || !address) {
+      setError("Please connect your wallet first.");
+      return;
+    }
+
+    try {
+      // Switch chain to Arbitrum Sepolia if needed
+      if (chain?.id !== arbitrumSepolia.id) {
+        if (switchChainAsync) {
+          await switchChainAsync({ chainId: arbitrumSepolia.id });
+        } else {
+          setError("Please switch your wallet network to Arbitrum Sepolia.");
+          return;
+        }
+      }
+
+      // 1. Approve USDC stake (1000 USDC, 6 decimals)
+      setLoadingStep('approving');
+      const stakeAmount = BigInt(1000) * (BigInt(10) ** BigInt(6));
+
+      const approveTx = await writeContractAsync({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [REGISTRY_ADDRESS, stakeAmount],
+      });
+
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash: approveTx });
+      }
+
+      // 2. Register Pilot on PilotRegistry contract
+      setLoadingStep('registering');
+      const card = {
+        name,
+        description,
+        riskProfile,
+        ipfsMetadata: "",
+        supportedChains: []
+      };
+
+      const registerTx = await writeContractAsync({
+        address: REGISTRY_ADDRESS,
+        abi: PILOT_REGISTRY_ABI,
+        functionName: 'registerPilot',
+        args: [card, executorAddress as `0x${string}`, address, stakeAmount],
+      });
+
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash: registerTx });
+      }
+
       setSuccess(true);
-    }, 2000);
+      setLoadingStep('idle');
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.shortMessage || err?.message || "Transaction failed. Please try again.");
+      setLoadingStep('idle');
+    }
   };
 
   if (success) {
@@ -25,7 +136,7 @@ export default function RegisterPilot() {
           <Icon name="check" size={48} style={{ color: 'var(--pos)', marginBottom: 20 }} />
           <h2 className="h2">Pilot Registered Successfully</h2>
           <p style={{ color: 'var(--ink-2)', marginTop: 12 }}>
-            Your pilot is now active in the harbor. You can start accepting charters and building your Pilotage Score.
+            Your pilot is now active on-chain and registered in the database! It will appear in the harbor shortly.
           </p>
           <Link href="/harbor" className="btn btn-primary" style={{ marginTop: 24, display: 'inline-flex', justifyContent: 'center' }}>
             Go to Harbor
@@ -50,35 +161,91 @@ export default function RegisterPilot() {
           </p>
         </div>
 
+        {error && (
+          <div style={{
+            background: 'rgba(192, 87, 59, 0.12)',
+            border: '1px solid var(--neg)',
+            color: 'var(--neg)',
+            borderRadius: 'var(--r)',
+            padding: '12px 20px',
+            marginBottom: '24px',
+            fontSize: '14px'
+          }}>
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="card" style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div className="form-group">
             <label className="form-label">Pilot Name</label>
-            <input type="text" className="form-input" placeholder="e.g. YieldSeeker Pro" required />
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="e.g. YieldSeeker Pro" 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required 
+              disabled={loadingStep !== 'idle'}
+            />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div className="form-group">
               <label className="form-label">Risk Profile</label>
-              <select className="form-input" required>
-                <option value="conservative">Conservative</option>
-                <option value="balanced">Balanced</option>
-                <option value="aggressive">Aggressive</option>
+              <select 
+                className="form-input" 
+                value={riskProfile}
+                onChange={(e) => setRiskProfile(e.target.value)}
+                required
+                disabled={loadingStep !== 'idle'}
+              >
+                <option value="steady-yield">Steady Yield</option>
+                <option value="conservative-rwa">Conservative RWA</option>
+                <option value="aggressive-yield">Aggressive Yield</option>
+                <option value="delta-neutral">Delta Neutral</option>
               </select>
             </div>
             <div className="form-group">
               <label className="form-label">Performance Fee (%)</label>
-              <input type="number" className="form-input" placeholder="15" min="0" max="100" required />
+              <input 
+                type="number" 
+                className="form-input" 
+                placeholder="15" 
+                min="0" 
+                max="100" 
+                value={performanceFee}
+                onChange={(e) => setPerformanceFee(Number(e.target.value))}
+                required 
+                disabled={loadingStep !== 'idle'}
+              />
             </div>
           </div>
 
           <div className="form-group">
             <label className="form-label">Executor Contract Address (Arbitrum Sepolia)</label>
-            <input type="text" className="form-input" placeholder="0x..." required pattern="^0x[a-fA-F0-9]{40}$" />
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="0x..." 
+              value={executorAddress}
+              onChange={(e) => setExecutorAddress(e.target.value)}
+              required 
+              pattern="^0x[a-fA-F0-9]{40}$" 
+              disabled={loadingStep !== 'idle'}
+            />
           </div>
 
           <div className="form-group">
             <label className="form-label">Strategy Description</label>
-            <textarea className="form-input" rows={4} placeholder="Describe how your pilot navigates the markets..." required />
+            <textarea 
+              className="form-input" 
+              rows={4} 
+              placeholder="Describe how your pilot navigates the markets..." 
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              required 
+              disabled={loadingStep !== 'idle'}
+            />
           </div>
 
           <div style={{ borderTop: '1px solid var(--vellum)', paddingTop: 24, marginTop: 8 }}>
@@ -86,8 +253,15 @@ export default function RegisterPilot() {
               <span className="form-label" style={{ margin: 0 }}>Required Stake</span>
               <span className="mono" style={{ fontWeight: 700 }}>1,000 USDC</span>
             </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
-              {loading ? 'Confirming Transaction...' : 'Stake USDC & Register Pilot'}
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ width: '100%', justifyContent: 'center' }} 
+              disabled={loadingStep !== 'idle'}
+            >
+              {loadingStep === 'approving' && 'Step 1/2: Approving USDC Stake...'}
+              {loadingStep === 'registering' && 'Step 2/2: Confirming Registry Transaction...'}
+              {loadingStep === 'idle' && 'Stake USDC & Register Pilot'}
             </button>
             <p className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', textAlign: 'center', marginTop: 12 }}>
               A signature request will appear in your wallet.
