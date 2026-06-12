@@ -101,7 +101,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>Pilotage Dashboard</title>
+        <title>PILOTAGE</title>
         <meta name="description" content="Manage your self-custodial smart vaults and delegation charters." />
       </head>
       <body style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', paddingTop: '100px' }}>
