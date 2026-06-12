@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PILOTS, Pilot, fmtUsd, fmtPct } from '../../../components/data';
+import { PILOTS, Pilot, fmtUsd, fmtPct, enrichApiPilot } from '../../../components/data';
 import { Icon, RiskPill } from '../../../components/ui';
 import { useDashboardState, CharterSettings } from '../../state';
+import { fetchPilots } from '../../../lib/api';
 
 const pilotTargets: Record<string, { sym: string; name: string; color: string }[]> = {
   'conservative-rwa': [
@@ -52,20 +53,33 @@ function VaultCreateWizardContent() {
   const [deploying, setDeploying] = useState(false);
   const [deployStep, setDeployStep] = useState('');
 
+  // Real pilots list from API
+  const [pilotsList, setPilotsList] = useState<Pilot[]>([]);
+
+  useEffect(() => {
+    fetchPilots().then(data => {
+      if (data && data.length > 0) {
+        setPilotsList(data.map(enrichApiPilot));
+      } else {
+        setPilotsList(PILOTS);
+      }
+    });
+  }, []);
+
   // Handle pre-selected pilot from query parameter
   useEffect(() => {
     const pilotId = searchParams.get('pilot');
-    if (pilotId && PILOTS.some(p => p.id === pilotId)) {
-      const p = PILOTS.find(p => p.id === pilotId)!;
+    if (pilotId && pilotsList.some(p => p.id === pilotId)) {
+      const p = pilotsList.find(p => p.id === pilotId)!;
       setSelectedPilotId(pilotId);
       setChain(p.chain);
       setStep(3); // Skip straight to configuration if chain and pilot are known
     }
-  }, [searchParams]);
+  }, [searchParams, pilotsList]);
 
   // Pilots whitelisted for the selected chain
-  const chainPilots = PILOTS.filter(p => p.chain === chain);
-  const selectedPilot = PILOTS.find(p => p.id === selectedPilotId);
+  const chainPilots = pilotsList.filter(p => p.chain === chain);
+  const selectedPilot = pilotsList.find(p => p.id === selectedPilotId);
 
   const handleSelectChain = (c: string) => {
     setChain(c);

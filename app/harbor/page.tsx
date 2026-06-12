@@ -114,7 +114,7 @@ export default function Harbor() {
     };
 
     return [...l].sort(sortingFuncs[sort]);
-  }, [risk, chain, sort]);
+  }, [pilots, risk, chain, sort]);
 
   return (
     <div className="wrap" style={{ paddingTop: '20px' }}>

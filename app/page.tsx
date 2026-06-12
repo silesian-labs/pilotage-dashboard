@@ -105,7 +105,7 @@ export default function DashboardPage() {
   };
 
   // ---------------- EMPTY STATE ----------------
-  if (vaults.length === 0) {
+  if (vaults.length === 0 || !walletConnected) {
     // Show top 2 pilots from API or fallback
     const featuredPilots = pilotsList.slice(0, 2);
     return (
