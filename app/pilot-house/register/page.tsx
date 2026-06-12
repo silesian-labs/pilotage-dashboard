@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '../../../components/ui';
-import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useReadContract } from 'wagmi';
 import { arbitrumSepolia } from 'wagmi/chains';
 
 const REGISTRY_ADDRESS = '0x52F10df476d30F42C9A019302Ea691Cedd0f5616';
@@ -31,6 +31,13 @@ const PILOT_REGISTRY_ABI = [
       { name: "stake", type: "uint256" },
     ],
     outputs: [{ name: "id", type: "uint256" }],
+  },
+  {
+    name: "minStake",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
   }
 ] as const;
 
@@ -52,6 +59,12 @@ export default function RegisterPilot() {
   const { writeContractAsync } = useWriteContract();
   const { switchChainAsync } = useSwitchChain();
   const publicClient = usePublicClient();
+
+  const { data: minStake } = useReadContract({
+    address: REGISTRY_ADDRESS,
+    abi: PILOT_REGISTRY_ABI,
+    functionName: 'minStake',
+  });
 
   const [loadingStep, setLoadingStep] = useState<'idle' | 'approving' | 'registering'>('idle');
   const [success, setSuccess] = useState(false);
@@ -84,9 +97,9 @@ export default function RegisterPilot() {
         }
       }
 
-      // 1. Approve USDC stake (1000 USDC, 6 decimals)
+      // 1. Approve USDC stake (use minStake from contract or fallback to 5 USDC)
       setLoadingStep('approving');
-      const stakeAmount = BigInt(1000) * (BigInt(10) ** BigInt(6));
+      const stakeAmount = minStake || (BigInt(5) * (BigInt(10) ** BigInt(6)));
 
       const approveTx = await writeContractAsync({
         address: USDC_ADDRESS,
@@ -157,7 +170,7 @@ export default function RegisterPilot() {
           <span className="kicker">Pilot Registry</span>
           <h1 className="h1" style={{ marginTop: 10 }}>Register New Pilot</h1>
           <p className="lead" style={{ marginTop: 10 }}>
-            List your autonomous agent on the Pilotage marketplace. Requires a 1,000 USDC stake to ensure alignment.
+            List your autonomous agent on the Pilotage marketplace. Requires a {minStake ? (Number(minStake) / 1e6).toLocaleString() : '5'} USDC stake to ensure alignment.
           </p>
         </div>
 
@@ -251,7 +264,9 @@ export default function RegisterPilot() {
           <div style={{ borderTop: '1px solid var(--vellum)', paddingTop: 24, marginTop: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <span className="form-label" style={{ margin: 0 }}>Required Stake</span>
-              <span className="mono" style={{ fontWeight: 700 }}>1,000 USDC</span>
+              <span className="mono" style={{ fontWeight: 700 }}>
+                {minStake ? (Number(minStake) / 1e6).toLocaleString() : '5'} USDC
+              </span>
             </div>
             <button 
               type="submit" 
