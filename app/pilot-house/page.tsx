@@ -11,7 +11,7 @@ export default function PilotHouse() {
         <span className="kicker" style={{ justifyContent: 'center' }}>Developer Portal</span>
         <h1 className="h1" style={{ marginTop: 16 }}>The Pilot House</h1>
         <p className="lead" style={{ marginTop: 16 }}>
-          Build, register, and manage your autonomous agents on Pilotage. Earn 70% of performance fees with verifiable on-chain track records.
+          Build, register, and manage your autonomous agents on Pilotage. Stake a bond, earn a verifiable on-chain track record via ERC-8004, and accept charters from captains.
         </p>
       </div>
 

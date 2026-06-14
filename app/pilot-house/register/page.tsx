@@ -72,8 +72,7 @@ export default function RegisterPilot() {
 
   // Form states
   const [name, setName] = useState('');
-  const [riskProfile, setRiskProfile] = useState('steady-yield');
-  const [performanceFee, setPerformanceFee] = useState(15);
+  const [riskProfile, setRiskProfile] = useState('conservative');
   const [executorAddress, setExecutorAddress] = useState('');
   const [description, setDescription] = useState('');
 
@@ -202,36 +201,20 @@ export default function RegisterPilot() {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div className="form-group">
-              <label className="form-label">Risk Profile</label>
-              <select 
-                className="form-input" 
-                value={riskProfile}
-                onChange={(e) => setRiskProfile(e.target.value)}
-                required
-                disabled={loadingStep !== 'idle'}
-              >
-                <option value="steady-yield">Steady Yield</option>
-                <option value="conservative-rwa">Conservative RWA</option>
-                <option value="aggressive-yield">Aggressive Yield</option>
-                <option value="delta-neutral">Delta Neutral</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Performance Fee (%)</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                placeholder="15" 
-                min="0" 
-                max="100" 
-                value={performanceFee}
-                onChange={(e) => setPerformanceFee(Number(e.target.value))}
-                required 
-                disabled={loadingStep !== 'idle'}
-              />
-            </div>
+          <div className="form-group">
+            <label className="form-label">Risk Profile</label>
+            <select
+              className="form-input"
+              value={riskProfile}
+              onChange={(e) => setRiskProfile(e.target.value)}
+              required
+              disabled={loadingStep !== 'idle'}
+            >
+              <option value="conservative">Conservative</option>
+              <option value="steady-yield">Steady Yield</option>
+              <option value="balanced">Balanced</option>
+              <option value="aggressive">Aggressive</option>
+            </select>
           </div>
 
           <div className="form-group">
